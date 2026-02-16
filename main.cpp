@@ -47,7 +47,7 @@ int main_part1(char *movie_filepath) {
             [](const Movie& a, const Movie& b) { return a.name < b.name; });
 
   for (const auto& movie : movies) {
-    cout << movie.name << ", " << movie.score / 10 << '.' << movie.score % 10 << '\n';
+    cout << movie.name << ", " << movie.score / 10 << '.' << char(movie.score % 10 + '0') << '\n';
   }
 
   return 0;
@@ -88,7 +88,7 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
 
   // bucket based approach (inspired by radix sort)
   // depending on the score we sort it into a bucket, then iterate backwards
-  std::vector<Movie> buckets[100];
+  std::vector<Movie> buckets[101];
   for (auto& b : buckets) b.reserve(800);
 
   std::string line, movie_name;
@@ -161,9 +161,9 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
       for (const auto &movie : *cell) {
         out += movie->name;
         out += ", ";
-        out += char(movie->score / 10 + '0');
-        out += '.';
-        out += char(movie->score % 10 + '0');
+	out += std::to_string(movie->score / 10);
+	out += '.';
+	out += char(movie->score % 10 + '0');
         out += '\n';
       }
       out += '\n';
@@ -174,7 +174,7 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
       best_buffer += " is: ";
       best_buffer += best->name;
       best_buffer += " with rating ";
-      best_buffer += char(best->score / 10 + '0');
+      best_buffer += std::to_string(best->score / 10);
       best_buffer += '.';
       best_buffer += char(best->score % 10 + '0');
       best_buffer += '\n';
@@ -183,8 +183,7 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
 
   // direct write instead of through cout
   out += best_buffer;
-  out += '\n';
-  write(STDOUT_FILENO, out.data(), out.size());
+  (void)write(STDOUT_FILENO, out.data(), out.size());
 
   return 0;
 }
@@ -211,12 +210,10 @@ bool parse_line(string &line, string &movie_name, unsigned int &movie_rating) {
 
   // assuming the range of ratings is 0.0 - 9.9
 
-  // note to self: if this assumption is not allowed,
-  // instead use the fact that '.' - '0' is negative
-  // to trigger an overflow resulting in 10 being the
-  // highest possible score (and integer)
-  movie_rating = (line[comma_index + 1] - '0') * 10;
-  if (comma_index + 3 < (int)line.size()) movie_rating += (line[comma_index + 3] - '0');
+  int num_index = comma_index + (int)(line[comma_index + 1] == ' ');
+  movie_rating = (line[num_index + 1] - '0') * 10;
+  if (num_index + 3 < (int)line.size()) movie_rating += (line[num_index + 3] - '0');
+  else if (line[num_index + 2] == '0') movie_rating *= 10;
 
   int start = 0, end = comma_index;
   if (line[0] == '\"') { start = 1; end--; }

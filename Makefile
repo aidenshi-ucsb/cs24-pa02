@@ -14,3 +14,6 @@ utilities.o: utilities.h utilities.cpp
 clean:
 	rm -f *.o
 	rm -f runMovies
+
+runMovies_perf: movies.o utilities.o main.cpp
+	g++ $(CXX_FLAGS) -pg -o runMovies_prof movies.o utilities.o main.cpp

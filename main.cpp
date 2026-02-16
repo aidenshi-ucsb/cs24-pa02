@@ -13,6 +13,8 @@
 #include <set>
 #include <queue>
 #include <sstream>
+#include <array>
+#include <unistd.h>
 using namespace std;
 
 #include "utilities.h"
@@ -38,18 +40,15 @@ int main_part1(char *movie_filepath) {
   unsigned int movie_rating;
 
   while (getline(movie_file, line) && parse_line(line, movie_name, movie_rating)){
-    movies.push_back(Movie(movie_name, movie_rating));
+    movies.emplace_back(std::move(movie_name), movie_rating);
   }
 
-  // movieFile.close(); // we don't need to do this since the operating system will do it for us
-
   std::sort(movies.begin(), movies.end(),
-            [](Movie a, Movie b) { return a.name < b.name; });
+            [](const Movie& a, const Movie& b) { return a.name < b.name; });
 
   for (const auto& movie : movies) {
     cout << movie.name << ", " << movie.score / 10 << '.' << movie.score % 10 << '\n';
   }
-
 
   return 0;
 }
@@ -66,7 +65,19 @@ int main_part1(char *movie_filepath) {
 #define NIL_CHR (' ' - 1)
 
 // well it's not *exactly* a trie but its close
-typedef std::vector<const Movie*> PrefixTrie[CHAR_RANGE][CHAR_RANGE][CHAR_RANGE];
+typedef std::vector<const Movie*>* SparseTrie[CHAR_RANGE][CHAR_RANGE][CHAR_RANGE];
+
+// instead of initialzing all 729k vectors, we only
+// initialize them when needed, keeping them 0 allocated
+// otherwise.
+inline std::vector<const Movie*>& trie_get_or_create(
+    SparseTrie& t, int a, int b, int c) {
+  auto& cell = t[a][b][c];
+  if (!cell) cell = new std::vector<const Movie*>();
+  return *cell;
+}
+
+static const std::vector<const Movie*> empty_vec;
 
 int main_part2(char *movie_filepath, char *prefix_filepath) {
   ifstream movie_file(movie_filepath);
@@ -74,30 +85,44 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
     cerr << "Could not open file " << movie_filepath;
     exit(1);
   }
-  std::vector<Movie> movies;
-  // 90^3 * 32 bytes or approximately 23 megabytes
-  // so we need to do a heap allocation 
-  auto prefix_trie = new PrefixTrie;
+
+  // bucket based approach (inspired by radix sort)
+  // depending on the score we sort it into a bucket, then iterate backwards
+  std::vector<Movie> buckets[100];
+  for (auto& b : buckets) b.reserve(800);
+
   std::string line, movie_name;
   unsigned int movie_rating;
 
   while (getline(movie_file, line) && parse_line(line, movie_name, movie_rating)){
-    movies.push_back(Movie(movie_name, movie_rating));
+    // emplace to not do another copy
+    buckets[movie_rating].emplace_back(std::move(movie_name), movie_rating);
   }
 
-  // we want the default sort here, but greatest first
-  std::sort(movies.begin(), movies.end(), std::greater<Movie>());
+  for (auto& bucket : buckets) {
+    std::sort(bucket.begin(), bucket.end(), [](const Movie& a, const Movie& b){
+      return a.name < b.name;
+    });
+  }
+
+  // move them into one global movies vector
+  std::vector<Movie> movies;
+  movies.reserve(80000);
+  for (int s = 99; s >= 0; --s) {
+    for (auto& m : buckets[s]) movies.push_back(std::move(m));
+  }
+
+  auto& trie = *(SparseTrie*)calloc(1, sizeof(SparseTrie));
 
   for (const auto& movie : movies) {
     int size = movie.name.size();
-    // we actually want passthrough here
     switch (size) {
     default:
-      prefix_trie[movie.name[0] - NIL_CHR][movie.name[1] - NIL_CHR][movie.name[2] - NIL_CHR].push_back(&movie);
+      trie_get_or_create(trie, movie.name[0] - NIL_CHR, movie.name[1] - NIL_CHR, movie.name[2] - NIL_CHR).push_back(&movie);
     case 2:
-      prefix_trie[movie.name[0] - NIL_CHR][movie.name[1] - NIL_CHR][NIL_CHR].push_back(&movie);
+      trie_get_or_create(trie, movie.name[0] - NIL_CHR, movie.name[1] - NIL_CHR, NIL_CHR).push_back(&movie);
     case 1:
-      prefix_trie[movie.name[0] - NIL_CHR][NIL_CHR][NIL_CHR].push_back(&movie);
+      trie_get_or_create(trie, movie.name[0] - NIL_CHR, NIL_CHR, NIL_CHR).push_back(&movie);
     case 0:
       {}
     }
@@ -110,40 +135,63 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
     exit(1);
   }
 
-  string best_buffer = "";
+  std::string out;
+  out.reserve(1 << 20);
+  std::string best_buffer;
+  best_buffer.reserve(1 << 18);
+
   while (getline (prefix_file, line)) {
     if (line.empty()) continue;
     int size = line.size();
 
-    std::vector<const Movie*>* res;
+    std::vector<const Movie*>* cell;
 
     switch (size) {
-    case 3: res = &prefix_trie[line[0] - NIL_CHR][line[1] - NIL_CHR][line[2] - NIL_CHR]; break;
-    case 2: res = &prefix_trie[line[0] - NIL_CHR][line[1] - NIL_CHR][NIL_CHR]; break;
-    case 1: res = &prefix_trie[line[0] - NIL_CHR][NIL_CHR][NIL_CHR]; break;
+    case 3: cell = trie[line[0] - NIL_CHR][line[1] - NIL_CHR][line[2] - NIL_CHR]; break;
+    case 2: cell = trie[line[0] - NIL_CHR][line[1] - NIL_CHR][NIL_CHR]; break;
+    case 1: cell = trie[line[0] - NIL_CHR][NIL_CHR][NIL_CHR]; break;
     default: __builtin_unreachable(); 
     }
 
-    if (res->size() == 0) {
-      std::cout << "No movies found with prefix "<< line << '\n';
+    if (!cell || cell->size() == 0) {
+      out += "No movies found with prefix ";
+      out += line;
+      out += '\n';
     } else {
-      for (const auto &movie : *res) {
-	std::cout << movie->name << ", " << movie->score / 10 << '.' << movie->score % 10 << '\n';
+      for (const auto &movie : *cell) {
+        out += movie->name;
+        out += ", ";
+        out += char(movie->score / 10 + '0');
+        out += '.';
+        out += char(movie->score % 10 + '0');
+        out += '\n';
       }
+      out += '\n';
 
-      std::cout << '\n';
-
-      const Movie* best = (*res)[0];
-      best_buffer += "Best movie with prefix " + line + " is: " + best->name + " with rating " + (char)(best->score / 10 + '0') + '.' + (char)(best->score % 10 + '0') + '\n';
+      const Movie* best = (*cell)[0];
+      best_buffer += "Best movie with prefix ";
+      best_buffer += line;
+      best_buffer += " is: ";
+      best_buffer += best->name;
+      best_buffer += " with rating ";
+      best_buffer += char(best->score / 10 + '0');
+      best_buffer += '.';
+      best_buffer += char(best->score % 10 + '0');
+      best_buffer += '\n';
     }
   }
 
-  std::cout << best_buffer << '\n';
+  // direct write instead of through cout
+  out += best_buffer;
+  out += '\n';
+  write(STDOUT_FILENO, out.data(), out.size());
 
   return 0;
 }
 
 int main(int argc, char** argv) {
+    ios_base::sync_with_stdio(false);
+    cin.tie(nullptr);
     if (argc < 2){
         cerr << "Not enough arguments provided (need at least 1 argument)." << endl;
         cerr << "Usage: " << argv[ 0 ] << " moviesFilename prefixFilename " << endl;
@@ -153,16 +201,6 @@ int main(int argc, char** argv) {
     if (argc == 2) return main_part1(argv[1]);
     if (argc == 3) return main_part2(argv[1], argv[2]);
 
-
-    //  For each prefix,
-    //  Find all movies that have that prefix and store them in an appropriate data structure
-    //  If no movie with that prefix exists print the following message
-    cout << "No movies found with prefix "<<"<replace with prefix>" << endl;
-
-    //  For each prefix,
-    //  Print the highest rated movie with that prefix if it exists.
-    cout << "Best movie with prefix " << "<replace with prefix>" << " is: " << "replace with movie name" << " with rating " << std::fixed << std::setprecision(1) << "replace with movie rating" << endl;
-
     return 0;
 }
 
@@ -170,7 +208,7 @@ int main(int argc, char** argv) {
 
 bool parse_line(string &line, string &movie_name, unsigned int &movie_rating) {
   int comma_index = line.find_last_of(",");
-  movie_name = line.substr(0, comma_index);
+
   // assuming the range of ratings is 0.0 - 9.9
 
   // note to self: if this assumption is not allowed,
@@ -178,10 +216,11 @@ bool parse_line(string &line, string &movie_name, unsigned int &movie_rating) {
   // to trigger an overflow resulting in 10 being the
   // highest possible score (and integer)
   movie_rating = (line[comma_index + 1] - '0') * 10;
-  if (comma_index + 3 < (int)line.size())
-    movie_rating += (line[comma_index + 3] - '0');
-  if (movie_name[0] == '\"') {
-    movie_name = movie_name.substr(1, movie_name.length() - 2);
-  }
+  if (comma_index + 3 < (int)line.size()) movie_rating += (line[comma_index + 3] - '0');
+
+  int start = 0, end = comma_index;
+  if (line[0] == '\"') { start = 1; end--; }
+  // prevent copy
+  movie_name.assign(line, start, end - start);
   return true;
 }

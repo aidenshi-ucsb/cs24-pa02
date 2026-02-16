@@ -98,6 +98,8 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
       prefix_trie[movie.name[0] - NIL_CHR][movie.name[1] - NIL_CHR][NIL_CHR].push_back(&movie);
     case 1:
       prefix_trie[movie.name[0] - NIL_CHR][NIL_CHR][NIL_CHR].push_back(&movie);
+    case 0:
+      {}
     }
   }
 
@@ -175,7 +177,9 @@ bool parse_line(string &line, string &movie_name, unsigned int &movie_rating) {
   // instead use the fact that '.' - '0' is negative
   // to trigger an overflow resulting in 10 being the
   // highest possible score (and integer)
-  movie_rating = (line[comma_index + 1] - '0') * 10 + (line[comma_index + 3] - '0') * (int)(line[comma_index + 2] == '.');
+  movie_rating = (line[comma_index + 1] - '0') * 10;
+  if (comma_index + 3 < (int)line.size())
+    movie_rating += (line[comma_index + 3] - '0');
   if (movie_name[0] == '\"') {
     movie_name = movie_name.substr(1, movie_name.length() - 2);
   }

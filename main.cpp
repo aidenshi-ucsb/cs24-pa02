@@ -120,9 +120,9 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
     default:
       trie_get_or_create(trie, movie.name[0] - NIL_CHR, movie.name[1] - NIL_CHR, movie.name[2] - NIL_CHR).push_back(&movie);
     case 2:
-      trie_get_or_create(trie, movie.name[0] - NIL_CHR, movie.name[1] - NIL_CHR, NIL_CHR).push_back(&movie);
+      trie_get_or_create(trie, movie.name[0] - NIL_CHR, movie.name[1] - NIL_CHR, 0).push_back(&movie);
     case 1:
-      trie_get_or_create(trie, movie.name[0] - NIL_CHR, NIL_CHR, NIL_CHR).push_back(&movie);
+      trie_get_or_create(trie, movie.name[0] - NIL_CHR, 0, 0).push_back(&movie);
     case 0:
       {}
     }
@@ -148,8 +148,8 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
 
     switch (size) {
     case 3: cell = trie[line[0] - NIL_CHR][line[1] - NIL_CHR][line[2] - NIL_CHR]; break;
-    case 2: cell = trie[line[0] - NIL_CHR][line[1] - NIL_CHR][NIL_CHR]; break;
-    case 1: cell = trie[line[0] - NIL_CHR][NIL_CHR][NIL_CHR]; break;
+    case 2: cell = trie[line[0] - NIL_CHR][line[1] - NIL_CHR][0]; break;
+    case 1: cell = trie[line[0] - NIL_CHR][0][0]; break;
     default: __builtin_unreachable(); 
     }
 

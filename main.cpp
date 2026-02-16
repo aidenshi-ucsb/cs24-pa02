@@ -133,26 +133,20 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
     });
   }
 
-  // move them into one global movies vector
-  std::vector<Movie> movies;
-  movies.reserve(80000);
-  for (int s = 100; s >= 0; --s) {
-    for (auto& m : buckets[s]) movies.push_back(std::move(m));
-  }
-
   auto& trie = *(SparseTrie*)calloc(1, sizeof(SparseTrie));
-
-  for (const auto& movie : movies) {
-    int size = movie.name.size();
-    switch (size) {
-    default:
-      trie_get_or_create(trie, movie.name[0] - NIL_CHR, movie.name[1] - NIL_CHR, movie.name[2] - NIL_CHR).push_back(&movie);
-    case 2:
-      trie_get_or_create(trie, movie.name[0] - NIL_CHR, movie.name[1] - NIL_CHR, 0).push_back(&movie);
-    case 1:
-      trie_get_or_create(trie, movie.name[0] - NIL_CHR, 0, 0).push_back(&movie);
-    case 0:
-      {}
+  for (int s = 100; s >= 0; --s) {
+    for (const auto& movie : buckets[s]) {
+      int size = movie.name.size();
+      switch (size) {
+      default:
+	trie_get_or_create(trie, movie.name[0] - NIL_CHR, movie.name[1] - NIL_CHR, movie.name[2] - NIL_CHR).push_back(&movie);
+      case 2:
+	trie_get_or_create(trie, movie.name[0] - NIL_CHR, movie.name[1] - NIL_CHR, 0).push_back(&movie);
+      case 1:
+	trie_get_or_create(trie, movie.name[0] - NIL_CHR, 0, 0).push_back(&movie);
+      case 0:
+	{}
+      }
     }
   }
 

@@ -23,7 +23,7 @@ using namespace std;
 bool parse_line(std::string_view &line, std::string_view &movie_name, unsigned int &movie_rating);
 
 int main_part1(char *movie_filepath) {
-  ifstream movie_file(movie_filepath);
+  ifstream movie_file(movie_filepath, std::ios::binary | std::ios::ate);
 
   if (movie_file.fail()) {
     cerr << "Could not open file " << movie_filepath;

@@ -57,9 +57,18 @@ int main_part1(char *movie_filepath) {
   std::sort(movies.begin(), movies.end(),
             [](const Movie& a, const Movie& b) { return a.name < b.name; });
 
+  std::string out;
+  out.reserve(1 << 20);
   for (const auto& movie : movies) {
-    cout << movie.name << ", " << movie.score / 10 << '.' << char(movie.score % 10 + '0') << '\n';
+    out += movie.name;
+    out += ", ";
+    out += std::to_string(movie.score / 10);
+    out += '.';
+    out += char(movie.score % 10 + '0');
+    out += '\n';
   }
+  if(write(STDOUT_FILENO, out.data(), out.size()))
+    ;
 
   return 0;
 }

@@ -23,15 +23,15 @@ using namespace std;
 #include "utilities.h"
 #include "movies.h"
 
-bool parse_line(std::string_view &line, std::string_view &movie_name, unsigned int &movie_rating);
+void parse_line(std::string_view &line, std::string_view &movie_name, unsigned int &movie_rating);
 
 int main_part1(char *movie_filepath) {
   int mf_fd = open(movie_filepath, O_RDONLY);
   if (mf_fd < 0) { cerr << "Could not open file " << movie_filepath; exit(1); }
   struct stat mf_st;
   fstat(mf_fd, &mf_st);
-  size_t size = mf_st.st_size;
-  const char* mf_buffer = (const char*)mmap(nullptr, size, PROT_READ, MAP_PRIVATE, mf_fd, 0);
+  size_t mf_size = mf_st.st_size;
+  const char* mf_buffer = (const char*)mmap(nullptr, mf_size, PROT_READ, MAP_PRIVATE, mf_fd, 0);
   close(mf_fd);
 
   // why vector? O(1) push & O(n log n) sort
@@ -39,19 +39,20 @@ int main_part1(char *movie_filepath) {
   // for n inserts into a red black tree. plus we get
   // the advantage of cache coherency
   std::vector<Movie> movies;
-  size_t line_start = 0;
-  size_t curr = 0;
+  const char* curr = mf_buffer;
+  const char* end = mf_buffer + mf_size;
 
   std::string_view movie_name;
   unsigned int movie_rating;
-  while (curr < size) {
-    while (curr < size && mf_buffer[curr] != '\n') curr++;
-    std::string_view line(&mf_buffer[line_start], curr - line_start);
+  while (curr < end) {
+    const char* next_nl = (const char*)memchr(curr, '\n', end - curr);
+    if (!next_nl) next_nl = end;
+    std::string_view line(curr, next_nl - curr);
     if (!line.empty()) {
       parse_line(line, movie_name, movie_rating);
       movies.emplace_back(movie_name, movie_rating);
     }
-    curr = line_start = curr + 1;
+    curr = next_nl + 1;
   }
 
   std::sort(movies.begin(), movies.end(),
@@ -103,8 +104,8 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
   if (mf_fd < 0) { cerr << "Could not open file " << movie_filepath; exit(1); }
   struct stat mf_st;
   fstat(mf_fd, &mf_st);
-  size_t size = mf_st.st_size;
-  const char* mf_buffer = (const char*)mmap(nullptr, size, PROT_READ, MAP_PRIVATE, mf_fd, 0);
+  const size_t mf_size = mf_st.st_size;
+  const char* mf_buffer = (const char*)mmap(nullptr, mf_size, PROT_READ, MAP_PRIVATE, mf_fd, 0);
   close(mf_fd);
 
   // bucket based approach (inspired by radix sort)
@@ -112,19 +113,20 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
   std::vector<Movie> buckets[101];
   for (auto& b : buckets) b.reserve(800);
 
-  size_t line_start = 0;
-  size_t curr = 0;
+  const char* curr = mf_buffer;
+  const char* end = mf_buffer + mf_size;
 
   std::string_view movie_name;
   unsigned int movie_rating;
-  while (curr < size) {
-    while (curr < size && mf_buffer[curr] != '\n') curr++;
-    std::string_view line(&mf_buffer[line_start], curr - line_start);
+  while (curr < end) {
+    const char* next_nl = (const char*)memchr(curr, '\n', end - curr);
+    if (!next_nl) next_nl = end;
+    std::string_view line(curr, next_nl - curr);
     if (!line.empty()) {
       parse_line(line, movie_name, movie_rating);
       buckets[movie_rating].emplace_back(movie_name, movie_rating);
     }
-    curr = line_start = curr + 1;
+    curr = next_nl + 1;
   }
 
   for (auto& bucket : buckets) {
@@ -163,17 +165,28 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
   std::string best_buffer;
   best_buffer.reserve(1 << 18);
 
-  curr = 0;
-  line_start = 0;
+  curr = pf_buffer;
+  end = pf_buffer + pf_size;
+  while (curr < end) {
+    const char* next_nl = (const char*)memchr(curr, '\n', end - curr);
+    if (!next_nl) next_nl = end;
+    std::string_view line(curr, next_nl - curr);
+    if (!line.empty()) {
+      parse_line(line, movie_name, movie_rating);
+      buckets[movie_rating].emplace_back(movie_name, movie_rating);
+    }
+    curr = next_nl + 1;
+  }
 
-  while (curr < pf_size) {
-    while (curr < pf_size && pf_buffer[curr] != '\n') curr++;
-    std::string_view line(&pf_buffer[line_start], curr - line_start);
+  while (curr < end) {
+    const char* next_nl = (const char*)memchr(curr, '\n', end - curr);
+    if (!next_nl) next_nl = end;
+    std::string_view line(curr, next_nl - curr);
 
     if (!line.empty()) {
       std::vector<const Movie*>* cell;
 
-      switch (curr - line_start) {
+      switch (line.size()) {
       case 3: cell = trie[line[0] - NIL_CHR][line[1] - NIL_CHR][line[2] - NIL_CHR]; break;
       case 2: cell = trie[line[0] - NIL_CHR][line[1] - NIL_CHR][0]; break;
       case 1: cell = trie[line[0] - NIL_CHR][0][0]; break;
@@ -209,7 +222,7 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
 
     }
 
-    curr = line_start = curr + 1;
+    curr = next_nl + 1;
   }
 
   // direct write instead of through cout
@@ -307,17 +320,21 @@ int main(int argc, char** argv) {
 
  */
 
-bool parse_line(std::string_view &line, std::string_view &movie_name, unsigned int &movie_rating) {
+void parse_line(std::string_view &line, std::string_view &movie_name, unsigned int &movie_rating) {
   int comma_index = line.find_last_of(",");
+  int size = line.size();
+  // There are 3 cases we need to handle
+  // abc
+  // X.Y -> c * 1  + a * 10
+  //  10 -> c * 1  + b * 100
+  //   X -> c * 10
+  // we can really use b as a differentiator since it will be ',' or '.' or '1' based on the case
+  movie_rating =
+      ((int)(line[size - 2] == ',') * 9 + 1) * (line[size - 1] - '0') +
+      (int)(line[size - 2] == '1') * 100 +
+      (int)(line[size - 2] == '.') * (line[size - 3] - '0') * 10;
 
-  int num_index = comma_index + (int)(line[comma_index + 1] == ' ');
-  movie_rating = (line[num_index + 1] - '0') * 10;
-
-  if (num_index + 3 < (int)line.size()) movie_rating += (line[num_index + 3] - '0');
-  else if (line[num_index + 2] == '0') movie_rating *= 10; // handle 10 case
-
-  int start = 0, end = comma_index;
-  if (line[0] == '\"') { start = 1; end--; }
+  int quoted = (int)(line[0] == '\"');
+  int start = quoted, end = comma_index - quoted;
   movie_name = std::string_view(&line[start], end - start);
-  return true;
 }

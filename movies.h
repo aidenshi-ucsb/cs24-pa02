@@ -2,11 +2,11 @@
 
 class Movie {
 public:
-    std::string name;
+    std::string_view name;
     int score;
 
     // move name instead of copying it
-    Movie(std::string name, int score) : name(std::move(name)), score(score) {}
+    Movie(std::string_view name, int score) : name(name), score(score) {}
 
     std::string getName() const;
     int getScore() const;

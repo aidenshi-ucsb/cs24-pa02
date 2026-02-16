@@ -63,9 +63,9 @@ int main_part1(char *movie_filepath) {
   for (const auto& movie : movies) {
     out += movie.name;
     out += ", ";
-    out += std::to_string(movie.score / 10);
+    out += std::to_string(movie.score >> 4);
     out += '.';
-    out += char(movie.score % 10 + '0');
+    out += char((movie.score & 0xf) + '0');
     out += '\n';
   }
   if(write(STDOUT_FILENO, out.data(), out.size()))
@@ -110,7 +110,7 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
 
   // bucket based approach (inspired by radix sort)
   // depending on the score we sort it into a bucket, then iterate backwards
-  std::vector<Movie> buckets[101];
+  std::vector<Movie> buckets[0xa1];
   for (auto& b : buckets) b.reserve(800);
 
   const char* curr = mf_buffer;
@@ -136,7 +136,7 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
   }
 
   auto& trie = *(SparseTrie*)calloc(1, sizeof(SparseTrie));
-  for (int s = 100; s >= 0; --s) {
+  for (int s = 0xa0; s >= 0; --s) {
     for (const auto& movie : buckets[s]) {
       int size = movie.name.size();
       switch (size) {
@@ -190,9 +190,9 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
 	for (const auto &movie : *cell) {
 	  out += movie->name;
 	  out += ", ";
-	  out += std::to_string(movie->score / 10);
+	  out += std::to_string(movie->score >> 4);
 	  out += '.';
-	  out += char(movie->score % 10 + '0');
+	  out += char((movie->score & 0xf) + '0');
 	  out += '\n';
 	}
 	out += '\n';
@@ -203,9 +203,9 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
 	best_buffer += " is: ";
 	best_buffer += best->name;
 	best_buffer += " with rating ";
-	best_buffer += std::to_string(best->score / 10);
+	best_buffer += std::to_string(best->score >> 4);
 	best_buffer += '.';
-	best_buffer += char(best->score % 10 + '0');
+	best_buffer += char((best->score & 0xf) + '0');
 	best_buffer += '\n';
       }
 
@@ -319,9 +319,9 @@ void parse_line(std::string_view &line, std::string_view &movie_name, unsigned i
   //   X -> c * 10
   // we can really use b as a differentiator since it will be ',' or '.' or '1' based on the case
   movie_rating =
-      ((int)(line[size - 2] == ',') * 9 + 1) * (line[size - 1] - '0') +
-      (int)(line[size - 2] == '1') * 100 +
-      (int)(line[size - 2] == '.') * (line[size - 3] - '0') * 10;
+      ((int)(line[size - 2] == ',') * 15 + 1) * (line[size - 1] - '0') +
+      (int)(line[size - 2] == '1') * 0xa0 +
+      (int)(line[size - 2] == '.') * (line[size - 3] - '0') * 16;
 
   int quoted = (int)(line[0] == '\"');
   int start = quoted, end = comma_index - quoted;

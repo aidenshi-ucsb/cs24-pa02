@@ -108,7 +108,7 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
   // move them into one global movies vector
   std::vector<Movie> movies;
   movies.reserve(80000);
-  for (int s = 99; s >= 0; --s) {
+  for (int s = 100; s >= 0; --s) {
     for (auto& m : buckets[s]) movies.push_back(std::move(m));
   }
 
@@ -183,7 +183,8 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
 
   // direct write instead of through cout
   out += best_buffer;
-  (void)write(STDOUT_FILENO, out.data(), out.size());
+  if(write(STDOUT_FILENO, out.data(), out.size()))
+    ;
 
   return 0;
 }

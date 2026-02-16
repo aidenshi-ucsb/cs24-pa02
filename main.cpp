@@ -81,8 +81,7 @@ typedef std::vector<const Movie*>* SparseTrie[CHAR_RANGE][CHAR_RANGE][CHAR_RANGE
 // instead of initialzing all 729k vectors, we only
 // initialize them when needed, keeping them 0 allocated
 // otherwise.
-inline std::vector<const Movie*>& trie_get_or_create(
-    SparseTrie& t, int a, int b, int c) {
+inline std::vector<const Movie*>& trie_get_or_create(SparseTrie& t, int a, int b, int c) {
   auto& cell = t[a][b][c];
   if (!cell) cell = new std::vector<const Movie*>();
   return *cell;
@@ -233,7 +232,77 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-/* Add your run time analysis for part 3 of the assignment here as commented block*/
+/*
+  Hello, and sorry to whoever has review my code. I hope its somewhat straight-
+  forward, but if you have any questions shoot an email.
+
+  In order to do efficient prefix lookup we can use a Trie data structure, which
+  has O(d) where d is the max length of any given prefix. An analysis of the
+  prefix provided shows us that prefixes are not longer than 3. Since d is
+  constant, we can represent our trie as a 3 dimensional array structure, where
+  each index represents an edge in our Trie.
+
+  The downside of this approach is memory usage, since it represents *every*
+  possible edge (For all ASCII this would be 256^3). To reduce this, we can find
+  the minimum and maximum character of all titles (see analysis.py) since edges
+  outside of this range cannot possibly	exist. Because of this optimization,
+  starts with lookups are O(1). Repeated m times for each prefix, and k movies
+  for each prefix, the time complexity for the lookup portion is O(mk).
+
+  In order to build the trie, I took some inspiration from radix sort. If we
+  pre-sort the movies in the order we want and then insert them into a trie, the
+  order in the trie will be in the correct order as well. To store all of the
+  movies, I decided on a sorted vector. Since the sort is a one time thing, we
+  incur a cost of O(n log n), but in order to do a comparison, we must compare
+  the strings, the total cost is O(n l log n).
+
+  Combining our 2 steps, we get a final runtime cost of O(nl log(n) + mk).
+
+  > hyperfine --warmup 3 -N \
+    './runMovies input_20_random.csv prefix_large.txt' \
+    './runMovies input_100_random.csv prefix_large.txt' \
+    './runMovies input_1000_random.csv prefix_large.txt' \
+    './runMovies input_76920_random.csv prefix_large.txt'
+  Benchmark 1: ./runMovies input_20_random.csv prefix_large.txt
+    Time (mean ± σ):       1.8 ms ±   0.2 ms    [User: 0.9 ms, System: 0.9 ms]
+    Range (min … max):     1.6 ms …   3.0 ms    1427 runs
+
+  Benchmark 2: ./runMovies input_100_random.csv prefix_large.txt
+    Time (mean ± σ):       1.9 ms ±   0.2 ms    [User: 0.9 ms, System: 0.8 ms]
+    Range (min … max):     1.6 ms …   2.6 ms    1309 runs
+
+  Benchmark 3: ./runMovies input_1000_random.csv prefix_large.txt
+    Time (mean ± σ):       2.2 ms ±   0.2 ms    [User: 1.2 ms, System: 0.9 ms]
+    Range (min … max):     1.9 ms …   3.5 ms    1265 runs
+
+  Benchmark 4: ./runMovies input_76920_random.csv prefix_large.txt
+    Time (mean ± σ):      30.9 ms ±   1.2 ms    [User: 24.6 ms, System: 5.9 ms]
+    Range (min … max):    29.0 ms …  34.5 ms    98 runs
+
+  Summary
+    ./runMovies input_20_random.csv prefix_large.txt ran
+      1.02 ± 0.14 times faster than ./runMovies input_100_random.csv prefix_large.txt
+      1.21 ± 0.16 times faster than ./runMovies input_1000_random.csv prefix_large.txt
+     16.70 ± 1.79 times faster than ./runMovies input_76920_random.csv prefix_large.txt
+
+  This didn't align with what I expected, so I decided to profile my code.
+  Flamegraphs can be found here:
+  https://gist.github.com/aidenshi-ucsb/bd8944452610506d02fd39867d2355a2
+
+  Once we look at the graphs it becomes obvious. In our 1000 movie run, 29.15%
+  of the runtime is dedicated to `main_part2` and most of the runtime is startup
+  costs. In our 76920 movie run, 35.93% of the runtime is dedicated to
+  `main_part2`, and while the startup cost has diminished, we see that 27.4% of
+  our runtime is now in libc, and also 16.5% of the time is dedicated to sorting
+  the list.
+
+  The sorting cost is expected to dominate our runtime which we do begin to see
+  as the list grows large, but we also see the cost of reading a large file start
+  to dominate our costs as well. While we've optimized file reading as much as
+  possible by mmap-ing it directly into memory to reduce round trips to the
+  kernel, the inherit cost of copying from the disk to memory becomes apparent.
+
+ */
 
 bool parse_line(std::string_view &line, std::string_view &movie_name, unsigned int &movie_rating) {
   int comma_index = line.find_last_of(",");

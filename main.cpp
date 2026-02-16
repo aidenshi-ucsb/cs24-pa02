@@ -171,17 +171,6 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
     const char* next_nl = (const char*)memchr(curr, '\n', end - curr);
     if (!next_nl) next_nl = end;
     std::string_view line(curr, next_nl - curr);
-    if (!line.empty()) {
-      parse_line(line, movie_name, movie_rating);
-      buckets[movie_rating].emplace_back(movie_name, movie_rating);
-    }
-    curr = next_nl + 1;
-  }
-
-  while (curr < end) {
-    const char* next_nl = (const char*)memchr(curr, '\n', end - curr);
-    if (!next_nl) next_nl = end;
-    std::string_view line(curr, next_nl - curr);
 
     if (!line.empty()) {
       std::vector<const Movie*>* cell;

@@ -15,6 +15,9 @@
 #include <sstream>
 #include <array>
 #include <unistd.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 using namespace std;
 
 #include "utilities.h"
@@ -23,39 +26,31 @@ using namespace std;
 bool parse_line(std::string_view &line, std::string_view &movie_name, unsigned int &movie_rating);
 
 int main_part1(char *movie_filepath) {
-  ifstream movie_file(movie_filepath, std::ios::binary | std::ios::ate);
-
-  if (movie_file.fail()) {
-    cerr << "Could not open file " << movie_filepath;
-    exit(1);
-  }
-
-  std::streamsize size = movie_file.tellg();
-  movie_file.seekg(0, std::ios::beg);
-
-  std::string mf_buffer;
-  mf_buffer.resize(size);
-
-  movie_file.read(&mf_buffer[0], size);
+  int mf_fd = open(movie_filepath, O_RDONLY);
+  if (mf_fd < 0) { cerr << "Could not open file " << movie_filepath; exit(1); }
+  struct stat mf_st;
+  fstat(mf_fd, &mf_st);
+  size_t size = mf_st.st_size;
+  const char* mf_buffer = (const char*)mmap(nullptr, size, PROT_READ, MAP_PRIVATE, mf_fd, 0);
+  close(mf_fd);
 
   // why vector? O(1) push & O(n log n) sort
   // which is equivilent to the O(n log n) complexity
   // for n inserts into a red black tree. plus we get
   // the advantage of cache coherency
   std::vector<Movie> movies;
-  int line_start = 0;
-  int curr = 0;
+  size_t line_start = 0;
+  size_t curr = 0;
 
   std::string_view movie_name;
   unsigned int movie_rating;
-  for (;;) {
-    while (!(mf_buffer[curr] == '\n' || mf_buffer[curr] == '\0')) curr++;
+  while (curr < size) {
+    while (curr < size && mf_buffer[curr] != '\n') curr++;
     std::string_view line(&mf_buffer[line_start], curr - line_start);
     if (!line.empty()) {
       parse_line(line, movie_name, movie_rating);
       movies.emplace_back(movie_name, movie_rating);
     }
-    if (mf_buffer[curr] == '\0') break;
     curr = line_start = curr + 1;
   }
 
@@ -96,41 +91,31 @@ inline std::vector<const Movie*>& trie_get_or_create(
 static const std::vector<const Movie*> empty_vec;
 
 int main_part2(char *movie_filepath, char *prefix_filepath) {
-  // avoid \r\n translation since that could slow us down
-  ifstream movie_file(movie_filepath, std::ios::binary | std::ios::ate);
-
-  if (movie_file.fail()) {
-    cerr << "Could not open file " << movie_filepath;
-    exit(1);
-  }
-
-  // read file into string
-  std::streamsize size = movie_file.tellg();
-  movie_file.seekg(0, std::ios::beg);
-
-  std::string mf_buffer;
-  mf_buffer.resize(size);
-
-  movie_file.read(&mf_buffer[0], size);
+  int mf_fd = open(movie_filepath, O_RDONLY);
+  if (mf_fd < 0) { cerr << "Could not open file " << movie_filepath; exit(1); }
+  struct stat mf_st;
+  fstat(mf_fd, &mf_st);
+  size_t size = mf_st.st_size;
+  const char* mf_buffer = (const char*)mmap(nullptr, size, PROT_READ, MAP_PRIVATE, mf_fd, 0);
+  close(mf_fd);
 
   // bucket based approach (inspired by radix sort)
   // depending on the score we sort it into a bucket, then iterate backwards
   std::vector<Movie> buckets[101];
   for (auto& b : buckets) b.reserve(800);
 
-  int line_start = 0;
-  int curr = 0;
+  size_t line_start = 0;
+  size_t curr = 0;
 
   std::string_view movie_name;
   unsigned int movie_rating;
-  for (;;) {
-    while (!(mf_buffer[curr] == '\n' || mf_buffer[curr] == '\0')) curr++;
+  while (curr < size) {
+    while (curr < size && mf_buffer[curr] != '\n') curr++;
     std::string_view line(&mf_buffer[line_start], curr - line_start);
     if (!line.empty()) {
       parse_line(line, movie_name, movie_rating);
       buckets[movie_rating].emplace_back(movie_name, movie_rating);
     }
-    if (mf_buffer[curr] == '\0') break;
     curr = line_start = curr + 1;
   }
 
@@ -163,20 +148,13 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
     }
   }
 
-  ifstream prefix_file(prefix_filepath, std::ios::binary | std::ios::ate);
-
-  if (prefix_file.fail()) {
-    cerr << "Could not open file " << prefix_filepath;
-    exit(1);
-  }
-
-  size = prefix_file.tellg();
-  prefix_file.seekg(0, std::ios::beg);
-
-  std::string pf_buffer;
-  pf_buffer.resize(size);
-
-  prefix_file.read(&pf_buffer[0], size);
+  int pf_fd = open(prefix_filepath, O_RDONLY);
+  if (pf_fd < 0) { cerr << "Could not open file " << prefix_filepath; exit(1); }
+  struct stat pf_st;
+  fstat(pf_fd, &pf_st);
+  size_t pf_size = pf_st.st_size;
+  const char* pf_buffer = (const char*)mmap(nullptr, pf_size, PROT_READ, MAP_PRIVATE, pf_fd, 0);
+  close(pf_fd);
 
   std::string out;
   out.reserve(1 << 20);
@@ -186,8 +164,8 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
   curr = 0;
   line_start = 0;
 
-  for (;;) {
-    while (!(pf_buffer[curr] == '\n' || pf_buffer[curr] == '\0')) curr++;
+  while (curr < pf_size) {
+    while (curr < pf_size && pf_buffer[curr] != '\n') curr++;
     std::string_view line(&pf_buffer[line_start], curr - line_start);
 
     if (!line.empty()) {
@@ -229,7 +207,6 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
 
     }
 
-    if (pf_buffer[curr] == '\0') break;
     curr = line_start = curr + 1;
   }
 

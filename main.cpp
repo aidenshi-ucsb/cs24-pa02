@@ -295,22 +295,22 @@ int main(int argc, char** argv) {
     _Exit(0);
 }
 
-// ~64 mb heap
-__attribute__((aligned(0x1000)))
-char HEAP[0x4000000];
-char *heap = HEAP;
+// // ~64 mb heap
+// __attribute__((aligned(0x1000)))
+// char HEAP[0x4000000];
+// char *heap = HEAP;
 
-// custom bump allocator malloc
-extern "C" void *malloc(unsigned long amount) {
-  void *chunk = (void *)heap;
-  // round up to 16 for alignment purposes
-  heap += amount + 15 & ~15;
-  return chunk;
-}
+// // custom bump allocator malloc
+// extern "C" void *malloc(unsigned long amount) {
+//   void *chunk = (void *)heap;
+//   // round up to 16 for alignment purposes
+//   heap += amount + 15 & ~15;
+//   return chunk;
+// }
 
-extern "C" void free(void* ptr) {
-  // noop
-}
+// extern "C" void free(void* ptr) {
+//   // noop
+// }
 
 /*
   Hello, and sorry to whoever has review my code. I hope its somewhat straight-

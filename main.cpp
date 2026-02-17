@@ -25,7 +25,65 @@ using namespace std;
 #include "utilities.h"
 #include "movies.h"
 
+// out of all of the titles, what's the lowest
+// and highest character of all characters?
+// then we find `highest - lowest + 1` to store prefixes.
+// it happens to be ' ' for lowest and '~' for highest
+// BUT we only care about prefix length when calculating
+// so within the first 3 characters, it's ' ' and 'z'
+// respectively
+// see anaylsis.py
+#define CHAR_RANGE (91 + 1)
+#define NIL_CHR (' ' - 1)
+
 void parse_line(std::string_view &line, std::string_view &movie_name, unsigned int &movie_rating);
+
+static void string_radix_sort(Movie* arr, int n, int depth, Movie* aux) {
+  // if our partition is small enough, switch to insertion sort
+  if (n <= 32) {
+    for (int i = 1; i < n; i++) {
+      Movie tmp = arr[i];
+      int j = i - 1;
+      while (j >= 0 && arr[j].name > tmp.name) {
+        arr[j + 1] = arr[j];
+        j--;
+      }
+      arr[j + 1] = tmp;
+    }
+    return;
+  }
+
+  int count[CHAR_RANGE + 1] = {};
+
+  for (int i = 0; i < n; i++) {
+    int c = (depth < (int)arr[i].name.size()) ? arr[i].name[depth] - NIL_CHR : 0;
+    count[c + 1]++;
+  }
+
+  // maintain a list of the prefix sums (count will get mutated)
+  int starts[CHAR_RANGE + 1];
+  starts[0] = 0;
+  // construct prefix sums, this will give us the first index that we write that
+  // given character into
+  for (int r = 0; r < CHAR_RANGE; r++) {
+    count[r + 1] += count[r];
+    starts[r + 1] = count[r + 1];
+  }
+
+  // build resulting array
+  for (int i = 0; i < n; i++) {
+    int c = (depth < (int)arr[i].name.size()) ? arr[i].name[depth] - NIL_CHR : 0;
+    aux[count[c]++] = arr[i];
+  }
+  __builtin_memcpy(arr, aux, n * sizeof(Movie));
+
+  // for each individual character increase depth by 1 and continue sort
+  for (int r = 1; r < CHAR_RANGE; r++) {
+    int sz = starts[r + 1] - starts[r];
+    if (sz > 1)
+      string_radix_sort(arr + starts[r], sz, depth + 1, aux);
+  }
+}
 
 void main_part1(char *movie_filepath) {
   int mf_fd = open(movie_filepath, O_RDONLY);
@@ -57,8 +115,10 @@ void main_part1(char *movie_filepath) {
     curr = next_nl + 1;
   }
 
-  std::sort(movies.begin(), movies.end(),
-            [](const Movie& a, const Movie& b) { return a.name < b.name; });
+  {
+    Movie* aux = (Movie*)malloc(movies.size() * sizeof(Movie));
+    string_radix_sort(movies.data(), movies.size(), 0, aux);
+  }
 
   std::string out;
   out.reserve(1 << 20);
@@ -75,17 +135,6 @@ void main_part1(char *movie_filepath) {
 
   _Exit(0);
 }
-
-// out of all of the titles, what's the lowest
-// and highest character of all characters?
-// then we find `highest - lowest + 1` to store prefixes.
-// it happens to be ' ' for lowest and '~' for highest
-// BUT we only care about prefix length when calculating
-// so within the first 3 characters, it's ' ' and 'z'
-// respectively
-// see anaylsis.py
-#define CHAR_RANGE (90 + 2)
-#define NIL_CHR (' ' - 1)
 
 // well it's not *exactly* a trie but its close
 typedef std::vector<const Movie*>* SparseTrie[CHAR_RANGE][CHAR_RANGE][CHAR_RANGE];
@@ -137,10 +186,14 @@ void main_part2(char *movie_filepath, char *prefix_filepath) {
     curr = next_nl + 1;
   }
 
-  for (auto& bucket : buckets) {
-    std::sort(bucket.begin(), bucket.end(), [](const Movie& a, const Movie& b){
-      return a.name < b.name;
-    });
+  {
+    size_t max_bucket = 0;
+    for (auto& b : buckets) max_bucket = std::max(max_bucket, b.size());
+    Movie* aux = (Movie*)malloc(max_bucket * sizeof(Movie));
+    for (auto& bucket : buckets) {
+      if (bucket.size() > 1)
+        string_radix_sort(bucket.data(), bucket.size(), 0, aux);
+    }
   }
 
   for (int s = (0xa1 * (CHAR_RANGE - 1)) - 1; s >= 0; --s) {

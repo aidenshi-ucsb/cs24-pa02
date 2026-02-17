@@ -166,9 +166,9 @@ void main_part2(char *movie_filepath, char *prefix_filepath) {
   close(pf_fd);
 
   std::string out;
-  out.reserve(1 << 20);
+  out.reserve(1 << 24);
   std::string best_buffer;
-  best_buffer.reserve(1 << 18);
+  best_buffer.reserve(1 << 24);
 
   curr = pf_buffer;
   end = pf_buffer + pf_size;
@@ -229,7 +229,7 @@ void main_part2(char *movie_filepath, char *prefix_filepath) {
 
 int main(int argc, char** argv) {
     ios_base::sync_with_stdio(false);
-    cin.tie(nullptr);
+    // cin.tie(nullptr);
     if (argc < 2){
         cerr << "Not enough arguments provided (need at least 1 argument)." << endl;
         cerr << "Usage: " << argv[ 0 ] << " moviesFilename prefixFilename " << endl;
@@ -242,8 +242,8 @@ int main(int argc, char** argv) {
     _Exit(0);
 }
 
-// ~32 mb heap
-char HEAP[0x2000000];
+// ~64 mb heap
+char HEAP[0x4000000];
 char *heap = HEAP;
 
 
@@ -252,7 +252,6 @@ extern "C" void *malloc(unsigned long amount) {
   void *chunk = (void *)heap;
   // round up to 16 for alignment purposes
   heap += amount + 15 & ~15;
-  if (heap > HEAP + 0x2000000) _Exit(13);
   return chunk;
 }
 

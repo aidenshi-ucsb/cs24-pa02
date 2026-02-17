@@ -340,6 +340,8 @@ int main(int argc, char** argv) {
   the strings, the total cost is O(n l log n).
 
   Combining our 2 steps, we get a final runtime cost of O(nl log(n) + mk).
+  NOTE: Read the edit at the bottom for a revised runtime cost. I've implemented
+  radix sort, so the runtime cost has changed
 
   > hyperfine --warmup 3 -N \
     './runMovies input_20_random.csv prefix_large.txt' \
@@ -384,6 +386,9 @@ int main(int argc, char** argv) {
   to dominate our costs as well. While we've optimized file reading as much as
   possible by mmap-ing it directly into memory to reduce round trips to the
   kernel, the inherit cost of copying from the disk to memory becomes apparent.
+
+  EDIT: I've replaced the built in sort with a radix sort, which makes the sort
+  O(n l) instead of O(n l log(n)), our revised time complexity is O(nl + mk)
 
  */
 

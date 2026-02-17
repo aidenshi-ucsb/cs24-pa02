@@ -116,8 +116,8 @@ void main_part2(char *movie_filepath, char *prefix_filepath) {
 
   // bucket based approach (inspired by radix sort)
   // depending on the score we sort it into a bucket, then iterate backwards
-  std::vector<Movie> buckets[0xa1];
-  for (auto& b : buckets) b.reserve(800);
+  std::vector<Movie> buckets[0xa1 * (CHAR_RANGE - 1)];
+  for (auto& b : buckets) b.reserve(8);
 
   const char* curr = mf_buffer;
   const char* end = mf_buffer + mf_size;
@@ -130,7 +130,9 @@ void main_part2(char *movie_filepath, char *prefix_filepath) {
     std::string_view line(curr, next_nl - curr);
     if (!line.empty()) {
       parse_line(line, movie_name, movie_rating);
-      buckets[movie_rating].emplace_back(movie_name, movie_rating);
+      if (!movie_name.empty()) {
+	buckets[movie_rating * (CHAR_RANGE - 1) + (movie_name[0] - ' ')].emplace_back(movie_name, movie_rating);
+      }
     }
     curr = next_nl + 1;
   }
@@ -141,7 +143,7 @@ void main_part2(char *movie_filepath, char *prefix_filepath) {
     });
   }
 
-  for (int s = 0xa0; s >= 0; --s) {
+  for (int s = (0xa1 * (CHAR_RANGE - 1)) - 1; s >= 0; --s) {
     for (const auto& movie : buckets[s]) {
       int size = movie.name.size();
       switch (size) {

@@ -1,6 +1,8 @@
 // Winter'24
 // Instructor: Diba Mirza
-// Student name: 
+// Student name: Aiden Shi
+#pragma GCC optimize("Ofast,unroll-loops")
+#pragma GCC target("avx512f,avx2,bmi,bmi2,lzcnt,popcnt")
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -25,7 +27,7 @@ using namespace std;
 
 void parse_line(std::string_view &line, std::string_view &movie_name, unsigned int &movie_rating);
 
-int main_part1(char *movie_filepath) {
+void main_part1(char *movie_filepath) {
   int mf_fd = open(movie_filepath, O_RDONLY);
   if (mf_fd < 0) { cerr << "Could not open file " << movie_filepath; exit(1); }
   struct stat mf_st;
@@ -71,7 +73,7 @@ int main_part1(char *movie_filepath) {
   if(write(STDOUT_FILENO, out.data(), out.size()))
     ;
 
-  return 0;
+  _Exit(0);
 }
 
 // out of all of the titles, what's the lowest
@@ -88,18 +90,22 @@ int main_part1(char *movie_filepath) {
 // well it's not *exactly* a trie but its close
 typedef std::vector<const Movie*>* SparseTrie[CHAR_RANGE][CHAR_RANGE][CHAR_RANGE];
 
+static SparseTrie trie = {};
+
 // instead of initialzing all 729k vectors, we only
 // initialize them when needed, keeping them 0 allocated
 // otherwise.
 inline std::vector<const Movie*>& trie_get_or_create(SparseTrie& t, int a, int b, int c) {
   auto& cell = t[a][b][c];
-  if (!cell) cell = new std::vector<const Movie*>();
+  if (!cell) {
+    cell = new std::vector<const Movie*>();
+    cell->reserve(8);
+  }
   return *cell;
 }
 
-static const std::vector<const Movie*> empty_vec;
 
-int main_part2(char *movie_filepath, char *prefix_filepath) {
+void main_part2(char *movie_filepath, char *prefix_filepath) {
   int mf_fd = open(movie_filepath, O_RDONLY);
   if (mf_fd < 0) { cerr << "Could not open file " << movie_filepath; exit(1); }
   struct stat mf_st;
@@ -135,7 +141,6 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
     });
   }
 
-  auto& trie = *(SparseTrie*)calloc(1, sizeof(SparseTrie));
   for (int s = 0xa0; s >= 0; --s) {
     for (const auto& movie : buckets[s]) {
       int size = movie.name.size();
@@ -219,7 +224,7 @@ int main_part2(char *movie_filepath, char *prefix_filepath) {
   if(write(STDOUT_FILENO, out.data(), out.size()))
     ;
 
-  return 0;
+  _Exit(0);
 }
 
 int main(int argc, char** argv) {
@@ -231,10 +236,28 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    if (argc == 2) return main_part1(argv[1]);
-    if (argc == 3) return main_part2(argv[1], argv[2]);
+    if (argc == 2) main_part1(argv[1]);
+    if (argc == 3) main_part2(argv[1], argv[2]);
 
-    return 0;
+    _Exit(0);
+}
+
+// ~32 mb heap
+char HEAP[0x2000000];
+char *heap = HEAP;
+
+
+// custom bump allocator malloc
+extern "C" void *malloc(unsigned long amount) {
+  void *chunk = (void *)heap;
+  // round up to 16 for alignment purposes
+  heap += amount + 15 & ~15;
+  if (heap > HEAP + 0x2000000) _Exit(13);
+  return chunk;
+}
+
+extern "C" void free(void* ptr) {
+  // noop
 }
 
 /*

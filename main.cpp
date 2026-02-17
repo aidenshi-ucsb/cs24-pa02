@@ -117,7 +117,7 @@ void main_part2(char *movie_filepath, char *prefix_filepath) {
   // bucket based approach (inspired by radix sort)
   // depending on the score we sort it into a bucket, then iterate backwards
   std::vector<Movie> buckets[0xa1 * (CHAR_RANGE - 1)];
-  for (auto& b : buckets) b.reserve(8);
+  // for (auto& b : buckets) b.reserve(16);
 
   const char* curr = mf_buffer;
   const char* end = mf_buffer + mf_size;

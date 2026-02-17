@@ -231,23 +231,10 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    struct stat st;
-    if (fstat(STDOUT_FILENO, &st) == 0) {
-        if (S_ISFIFO(st.st_mode)) {
-            printf("stdout is a pipe.\n");
-        } else {
-            printf("stdout is not a pipe\n");
-        }
-    } else {
-        perror("fstat failed");
-        return 1;
-    }
+    if (argc == 2) return main_part1(argv[1]);
+    if (argc == 3) return main_part2(argv[1], argv[2]);
+
     return 0;
-
-    // if (argc == 2) return main_part1(argv[1]);
-    // if (argc == 3) return main_part2(argv[1], argv[2]);
-
-    // return 0;
 }
 
 /*

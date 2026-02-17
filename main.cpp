@@ -1,8 +1,8 @@
 // Winter'24
 // Instructor: Diba Mirza
 // Student name: Aiden Shi
-#pragma GCC optimize("Ofast,unroll-loops")
-#pragma GCC target("avx512f,avx2,bmi,bmi2,lzcnt,popcnt")
+#pragma GCC optimize("Ofast")
+// #pragma GCC target("avx512f,avx2,bmi,bmi2,lzcnt,popcnt")
 #include <iostream>
 #include <fstream>
 #include <string>

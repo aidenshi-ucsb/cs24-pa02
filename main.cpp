@@ -85,6 +85,18 @@ static void string_radix_sort(Movie* arr, int n, int depth, Movie* aux) {
   }
 }
 
+inline void append_score(std::string& out, unsigned int score) {
+    unsigned int integer = score >> 4;
+    if (integer == 10) {
+        out.append("10.", 3);
+    } else {
+        out.push_back((char)('0' + integer));
+        out.push_back('.');
+    }
+    out.push_back((char)((score & 0xf) + '0'));
+}
+
+
 void main_part1(char *movie_filepath) {
   int mf_fd = open(movie_filepath, O_RDONLY);
   if (mf_fd < 0) { cerr << "Could not open file " << movie_filepath; exit(1); }
@@ -125,9 +137,7 @@ void main_part1(char *movie_filepath) {
   for (const auto& movie : movies) {
     out += movie.name;
     out += ", ";
-    out += std::to_string(movie.score >> 4);
-    out += '.';
-    out += char((movie.score & 0xf) + '0');
+    append_score(out, movie.score);
     out += '\n';
   }
   if(write(STDOUT_FILENO, out.data(), out.size()))
@@ -248,9 +258,7 @@ void main_part2(char *movie_filepath, char *prefix_filepath) {
 	for (const auto &movie : *cell) {
 	  out += movie->name;
 	  out += ", ";
-	  out += std::to_string(movie->score >> 4);
-	  out += '.';
-	  out += char((movie->score & 0xf) + '0');
+	  append_score(out, movie->score);
 	  out += '\n';
 	}
 	out += '\n';
@@ -261,9 +269,7 @@ void main_part2(char *movie_filepath, char *prefix_filepath) {
 	best_buffer += " is: ";
 	best_buffer += best->name;
 	best_buffer += " with rating ";
-	best_buffer += std::to_string(best->score >> 4);
-	best_buffer += '.';
-	best_buffer += char((best->score & 0xf) + '0');
+	append_score(best_buffer, best->score);
 	best_buffer += '\n';
       }
 
@@ -273,8 +279,10 @@ void main_part2(char *movie_filepath, char *prefix_filepath) {
   }
 
   // direct write instead of through cout
-  out += best_buffer;
   if(write(STDOUT_FILENO, out.data(), out.size()))
+    ;
+
+  if(write(STDOUT_FILENO, best_buffer.data(), best_buffer.size()))
     ;
 
   _Exit(0);
